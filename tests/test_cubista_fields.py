@@ -453,3 +453,11 @@ def test_when_field_has_bool_type_and_primary_key_and_allows_nulls_raises_except
             class Fields:
                 id = cubista.DateField(unique=True, primary_key=True, nulls=True)
 
+def test_when_field_has_auto_increment_primary_key_type_it_has_attribute_primary_key_equals_true():
+    class Table(cubista.AggregatedTable):
+        class Fields:
+            id = cubista.AutoIncrementPrimaryKeyField()
+
+    table = Table()
+
+    assert table.Fields.id.primary_key == True

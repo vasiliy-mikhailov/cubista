@@ -36,6 +36,7 @@ class Field:
 
 class IntField(Field):
     def __init__(self, nulls=False, unique=False, primary_key=False):
+        super(IntField, self).__init__()
         if primary_key and not unique:
             raise PrimaryKeyMustBeUnique()
 
@@ -45,7 +46,6 @@ class IntField(Field):
         self.nulls = nulls
         self.unique = unique
         self.primary_key = primary_key
-        self.evaluated = False
 
     def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
         nulls = self.nulls
@@ -57,14 +57,21 @@ class IntField(Field):
             unique=unique
         )
 
+    def is_evaluated(self):
+        return True
+
     def do_nothing_intentionally(self):
         pass
 
     def check_references_raise_exception_otherwise(self):
         self.do_nothing_intentionally()
 
+    def is_required_for_aggregation(self):
+        return False
+
 class StringField(Field):
     def __init__(self, nulls=False, unique=False, primary_key=False):
+        super(StringField, self).__init__()
         if primary_key and not unique:
             raise PrimaryKeyMustBeUnique()
 
@@ -74,7 +81,6 @@ class StringField(Field):
         self.nulls = nulls
         self.unique = unique
         self.primary_key = primary_key
-        self.evaluated = False
 
     def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
         nulls = self.nulls
@@ -92,8 +98,15 @@ class StringField(Field):
     def check_references_raise_exception_otherwise(self):
         self.do_nothing_intentionally()
 
+    def is_evaluated(self):
+        return True
+
+    def is_required_for_aggregation(self):
+        return False
+
 class FloatField(Field):
     def __init__(self, nulls=False, unique=False, primary_key=False):
+        super(FloatField, self).__init__()
         if primary_key and not unique:
             raise PrimaryKeyMustBeUnique()
 
@@ -103,7 +116,6 @@ class FloatField(Field):
         self.nulls = nulls
         self.unique = unique
         self.primary_key = primary_key
-        self.evaluated = False
 
     def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
         nulls = self.nulls
@@ -121,8 +133,15 @@ class FloatField(Field):
     def check_references_raise_exception_otherwise(self):
         self.do_nothing_intentionally()
 
+    def is_evaluated(self):
+        return True
+
+    def is_required_for_aggregation(self):
+        return False
+
 class BoolField(Field):
     def __init__(self, nulls=False, unique=False, primary_key=False):
+        super(BoolField, self).__init__()
         if primary_key and not unique:
             raise PrimaryKeyMustBeUnique()
 
@@ -132,7 +151,6 @@ class BoolField(Field):
         self.nulls = nulls
         self.unique = unique
         self.primary_key = primary_key
-        self.evaluated = False
 
     def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
         nulls = self.nulls
@@ -150,8 +168,15 @@ class BoolField(Field):
     def check_references_raise_exception_otherwise(self):
         self.do_nothing_intentionally()
 
+    def is_evaluated(self):
+        return True
+
+    def is_required_for_aggregation(self):
+        return False
+
 class DateField(Field):
     def __init__(self, nulls=False, unique=False, primary_key=False):
+        super(DateField, self).__init__()
         if primary_key and not unique:
             raise PrimaryKeyMustBeUnique()
 
@@ -161,7 +186,6 @@ class DateField(Field):
         self.nulls = nulls
         self.unique = unique
         self.primary_key = primary_key
-        self.evaluated = False
 
     def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
         nulls = self.nulls
@@ -179,13 +203,20 @@ class DateField(Field):
     def check_references_raise_exception_otherwise(self):
         self.do_nothing_intentionally()
 
+    def is_evaluated(self):
+        return True
+
+    def is_required_for_aggregation(self):
+        return False
+
 class ForeignKey(Field):
     def __init__(self, to, default, nulls=False):
+        super(ForeignKey, self).__init__()
         self.to = to
         self.default = default
         self.nulls = nulls
         self.primary_key = False
-        self.evaluated = False
+        self.references_checked = False
 
     def do_nothing_intentionally(self):
         pass
@@ -216,12 +247,20 @@ class ForeignKey(Field):
 
         data_frame.loc[~data_frame[field_name].isin(referenced_values), field_name] = default_value_for_referencing_nowhere
 
+        self.references_checked = True
+
+    def is_evaluated(self):
+        return self.references_checked
+
+    def is_required_for_aggregation(self):
+        return False
+
 class PullByForeignKey(Field):
     def __init__(self, to, source_field):
+        super(PullByForeignKey, self).__init__()
         self.to = to
         self.source_field = source_field
         self.primary_key = False
-        self.evaluated = True
 
     def do_nothing_intentionally(self):
         pass
@@ -276,12 +315,21 @@ class PullByForeignKey(Field):
 
         table.data_frame = new_data_frame
 
+    def is_evaluated(self):
+        field_name = self.name
+        table = self.table
+        data_frame = table.data_frame
+        return field_name in data_frame.columns
+
+    def is_required_for_aggregation(self):
+        return False
+
 class CalculatedField(Field):
     def __init__(self, lambda_expression, source_fields):
+        super(CalculatedField, self).__init__()
         self.lambda_expression = lambda_expression
         self.source_fields = source_fields
         self.primary_key = False
-        self.evaluated = True
 
     def do_nothing_intentionally(self):
         pass
@@ -313,3 +361,113 @@ class CalculatedField(Field):
             lambda_expression,
             axis=1
         )
+
+    def is_evaluated(self):
+        field_name = self.name
+        table = self.table
+        data_frame = table.data_frame
+        return field_name in data_frame.columns
+
+    def is_required_for_aggregation(self):
+        return False
+
+class AutoIncrementPrimaryKeyField(Field):
+    def __init__(self):
+        super(AutoIncrementPrimaryKeyField, self).__init__()
+        self.primary_key = True
+
+    def do_nothing_intentionally(self):
+        pass
+
+    def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
+        self.do_nothing_intentionally()
+
+    def check_references_raise_exception_otherwise(self):
+        self.do_nothing_intentionally()
+
+    def is_ready_to_be_evaluated(self):
+        return False
+
+    def is_evaluated(self):
+        field_name = self.name
+        table = self.table
+        data_frame = table.data_frame
+        return field_name in data_frame.columns
+
+    def is_required_for_aggregation(self):
+        return False
+
+class GroupField(Field):
+    def __init__(self, source, primary_key=False):
+        super(GroupField, self).__init__()
+        self.source = source
+        self.primary_key = primary_key
+
+    def do_nothing_intentionally(self):
+        pass
+
+    def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
+        self.do_nothing_intentionally()
+
+    def check_references_raise_exception_otherwise(self):
+        self.do_nothing_intentionally()
+
+    def is_ready_to_be_evaluated(self):
+        return False
+
+    def is_evaluated(self):
+        field_name = self.name
+        table = self.table
+        data_frame = table.data_frame
+        return field_name in data_frame.columns
+
+    def is_required_for_aggregation(self):
+        return True
+
+    def is_ready_to_be_aggregated(self):
+        table = self.table
+        data_source = table.data_source
+        source_table_type = table.Aggregation.source()
+        source_table = data_source.tables[source_table_type]
+        source_field_name = self.source
+        source_field_object = source_table.Fields.__dict__[source_field_name]
+
+        return source_field_object.is_evaluated()
+
+class AggregatedField(Field):
+    def __init__(self, source, aggregate_function):
+        super(AggregatedField, self).__init__()
+        self.source = source
+        self.aggregate_function = aggregate_function
+        self.primary_key = False
+
+    def do_nothing_intentionally(self):
+        pass
+
+    def check_field_has_correct_data_type_in_data_frame_column_raise_exception_otherwise(self, data):
+        self.do_nothing_intentionally()
+
+    def check_references_raise_exception_otherwise(self):
+        self.do_nothing_intentionally()
+
+    def is_ready_to_be_evaluated(self):
+        return False
+
+    def is_evaluated(self):
+        field_name = self.name
+        table = self.table
+        data_frame = table.data_frame
+        return field_name in data_frame.columns
+
+    def is_required_for_aggregation(self):
+        return True
+
+    def is_ready_to_be_aggregated(self):
+        table = self.table
+        data_source = table.data_source
+        source_table_type = table.Aggregation.source()
+        source_table = data_source.tables[source_table_type]
+        source_field_name = self.source
+        source_field_object = source_table.Fields.__dict__[source_field_name]
+
+        return source_field_object.is_evaluated()

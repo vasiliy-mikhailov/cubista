@@ -6,7 +6,7 @@ class DataSource:
 
         self.set_data_source_for_tables()
         self.check_references_raise_exception_otherwise()
-        self.evaluate_fields()
+        self.evaluate_tables()
 
     def set_data_source_for_tables(self):
         tables = self.tables
@@ -18,26 +18,24 @@ class DataSource:
         for _, table in tables.items():
             table.check_references_raise_exception_otherwise()
 
-    def evaluate_fields(self):
+    def get_fields_to_evaluate(self):
         tables = self.tables
-
-        fields_to_evaluate = []
+        result = []
 
         for _, table in tables.items():
-            for _, field_object in table.get_fields().items():
-                if field_object.evaluated:
-                    fields_to_evaluate.append(field_object)
+            result = result + table.get_fields_to_evaluate()
 
-        print(fields_to_evaluate)
+        return result
+
+    def evaluate_tables(self):
+        fields_to_evaluate = self.get_fields_to_evaluate()
+        tables = self.tables
 
         while len(fields_to_evaluate) > 0:
-            not_evaluated_fields = []
+            for _, table_object in tables.items():
+                table_object.evaluate()
 
-            for field_to_evaluate in fields_to_evaluate:
-                if field_to_evaluate.is_ready_to_be_evaluated():
-                    field_to_evaluate.evaluate()
-                else:
-                    not_evaluated_fields.append(field_to_evaluate)
+            not_evaluated_fields = self.get_fields_to_evaluate()
 
             if len(fields_to_evaluate) == len(not_evaluated_fields):
                 raise cubista.CannotEvaluateFields("{}".format(", ".join([str(field) for field in not_evaluated_fields])))

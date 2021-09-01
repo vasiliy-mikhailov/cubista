@@ -231,3 +231,41 @@ def test_when_field_is_calculated_only_source_fields_are_sent_to_lambda():
     ])
 
     assert table1.data_frame["only_source_fields_sent_to_lambda"].tolist() == [True]
+
+def test_create_table_with_grouping_and_aggregation():
+    class Table1(cubista.Table):
+        class Fields:
+            id = cubista.IntField(primary_key=True, unique=True)
+            name = cubista.StringField()
+            value = cubista.FloatField()
+
+    class Table2(cubista.AggregatedTable):
+        class Aggregation:
+            source: cubista.Table = lambda: Table1
+            sort_by = ["id"]
+            group_by = ["name"]
+
+        class Fields:
+            id = cubista.AutoIncrementPrimaryKeyField()
+            table1_name = cubista.GroupField(source="name")
+            table1_value_sum = cubista.AggregatedField(source="value", aggregate_function="sum")
+
+    data1 = {
+        "id": [1, 2, 3, 4],
+        "name": ["group 1", "group 1", "group 2", "group 2"],
+        "value": [1.0, 2.0, 3.0, 4.0]
+    }
+    data_frame1 = pd.DataFrame(data1)
+    table1 = Table1(data_frame=data_frame1)
+
+    table2 = Table2()
+
+    _ = cubista.DataSource(tables=[
+        table1,
+        table2
+    ])
+
+    assert table2.data_frame.columns.tolist() == ["table1_name", "table1_value_sum", "id"]
+    assert table2.data_frame["id"].tolist() == [-2, -3]
+    assert table2.data_frame["table1_name"].tolist() == ["group 1", "group 2"]
+    assert table2.data_frame["table1_value_sum"].tolist() == [3.0, 7.0]

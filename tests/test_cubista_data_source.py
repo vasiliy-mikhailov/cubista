@@ -216,7 +216,7 @@ def test_when_field_is_calculated_only_source_fields_are_sent_to_lambda():
             id = cubista.IntField(primary_key=True, unique=True)
             name = cubista.StringField()
             email = cubista.StringField()
-            source_fields_contain_only_index = cubista.CalculatedField(lambda x: x.index.tolist() == ["name", "email"], source_fields=["name", "email"])
+            only_source_fields_sent_to_lambda = cubista.CalculatedField(lambda x: x.index.tolist() == ["name", "email"], source_fields=["name", "email"])
 
     data1 = {
         "id": [1],
@@ -230,4 +230,4 @@ def test_when_field_is_calculated_only_source_fields_are_sent_to_lambda():
         table1
     ])
 
-    assert table1.data_frame["source_fields_contain_only_index"].tolist() == [True]
+    assert table1.data_frame["only_source_fields_sent_to_lambda"].tolist() == [True]
